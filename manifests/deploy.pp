@@ -2,11 +2,13 @@ define django::deploy(
   $app_name = $name,
   $venv_name = $name,
   $project_path,
-  $clone_path = "src",
+  $clone_path = "",
   $git_url,
   $user,
-  $settings = "settings_local.py",
-  $settings_source = undef,
+  $gunicorn_app_module,
+  $settings = "settings.py",
+  $extra_settings = undef,
+  $extra_settings_source = undef,
   $requirements = "requirements.txt",
   $migrate = false,
   $collectstatic = false,
@@ -48,19 +50,13 @@ define django::deploy(
 
   # Create settings file
   if $settings_source {
-    file { "settings ${app_name}":
+    file { "extra settings ${app_name}":
       ensure  => present,
-      path    => "${source_path}/${settings}",
+      path    => "${source_path}/${extra_settings_source}",
       source  => $settings_source,
       owner   => $user,
-      require => Exec["git-clone ${app_name}"]
-    }
-  } else {
-    file { "settings ${app_name}":
-      ensure  => present,
-      path    => "${source_path}/${settings}",
-      owner   => $user,
       require => Exec["git-clone ${app_name}"],
+      before  => Virtualenv::Exec["requirements ${app_name}"],
     }
   }
 
@@ -69,7 +65,6 @@ define django::deploy(
     virtualenv => $venv_name,
     user       => $user,
     command    => "pip install -r ${source_path}/${requirements}",
-    require    => File["settings ${app_name}"],
   }
 
   # Run syncdb
@@ -112,11 +107,13 @@ define django::deploy(
 
   # Configure supervisor to run django
   supervisor::app { $app_name:
-    command => "\$HOME/.virtualenvs/${venv_name}/bin/gunicorn_django -c ../gunicorn.conf.py",
+    command => "virtualenv_exec ${venv_name} gunicorn ${gunicorn_app_module} -c ${project_path}/gunicorn.conf.py --settings=${source_path}/${settings}",
     directory => "${source_path}",
     user => $user,
     require => File["gunicorn ${app_name}"],
   }
+
+
 
 
 }
