@@ -1,15 +1,14 @@
 define django::deploy(
-  $app_name = $name,
-  $venv_name = $name,
+  $app_name = $title,
+  $venv_path,
   $project_path,
-  $clone_path = "",
   $git_url,
   $user,
   $gunicorn_app_module,
-  $settings = "settings.py",
+  $django_path = undef,
+  $requirements = "requirements.txt",
   $extra_settings = undef,
   $extra_settings_source = undef,
-  $requirements = "requirements.txt",
   $migrate = false,
   $collectstatic = false,
   $bind = "0.0.0.0:8000",
@@ -26,94 +25,97 @@ define django::deploy(
 
 ) {
 
-  if $clone_path == "" {
-    $source_path = $project_path
+  # Set django absolute path
+  if $django_path {
+    $django_abs_path = "${project_path}/${django_path}"
   } else {
-    $source_path = "${project_path}/${clone_path}"
+    $django_abs_path = $project_path
   }
 
   # Clone APP
   exec { "git-clone ${app_name}":
-    command => "git clone ${git_url} ${source_path}",
+    command => "git clone ${git_url} ${project_path}",
     user    => $user,
     path    => ['/usr/bin'],
-    unless  => "test -d ${source_path}",
+    unless  => "test -d ${project_path}/.git",
     require => Package['git'],
   }
 
   # Create virtualenv
-  virtualenv::create { $venv_name:
+  virtualenv::create { $venv_path:
     user    => $user,
-    project => $project_path,
     require => Class['virtualenv'],
+    unless  => "test -d ${venv_path}/bin",
   }
 
-  # Create settings file
-  if $settings_source {
+  # Create extra settings file
+  if $extra_settings_source {
     file { "extra settings ${app_name}":
       ensure  => present,
-      path    => "${source_path}/${extra_settings_source}",
+      path    => "${project_path}/${extra_settings}",
       source  => $settings_source,
       owner   => $user,
       require => Exec["git-clone ${app_name}"],
-      before  => Virtualenv::Exec["requirements ${app_name}"],
+      before  => Exec["syncdb ${app_name}"],
     }
   }
 
   # Install requirements
-  virtualenv::exec { "requirements ${app_name}":
-    virtualenv => $venv_name,
-    user       => $user,
-    command    => "pip install -r ${source_path}/${requirements}",
+  virtualenv::install_requirements { "requirements ${app_name}":
+    requirements => "${project_path}/${requirements}",
+    venv         => $venv_path,
+    user         => $user,
+    require      => Virtualenv::Create[$venv_path]
   }
 
   # Run syncdb
-  virtualenv::exec { "syncdb ${app_name}":
-    virtualenv => $venv_name,
-    command    => 'python ${source_path}/manage.py syncdb --noinput',
-    user       => $user,
-    require    => Virtualenv::Exec["requirements ${app_name}"],
+  exec { "syncdb ${app_name}":
+    command => 'python manage.py syncdb --noinput',
+    path    => "${venv_path}/bin/",
+    cwd     => $django_abs_path,
+    user    => $user,
+    require => Virtualenv::Install_requirements["requirements ${app_name}"],
   }
 
   # Run collectstatic
   if ($collectstatic) {
-    virtualenv::exec { "collectstatic ${app_name}":
-      virtualenv => $venv_name,
-      command    => 'python ${source_path}/manage.py collectstatic --noinput',
-      user       => $user,
-      require    => Virtualenv::Exec["syncdb ${app_name}"],
-      before     => Supervisor::App[$app_name],
+
+    exec { "collectstatic ${app_name}":
+      command => 'python manage.py collectstatic --noinput',
+      path    => "${venv_path}/bin/",
+      cwd     => $django_abs_path,
+      user    => $user,
+      require => Exec["syncdb ${app_name}"],
+      before  => Supervisor::App[$app_name],
     }
   }
   # Run migrate
   if ($migrate) {
-    virtualenv::exec { "migrate ${app_name}": 
-      virtualenv => $venv_name,
-      command    => 'python ${source_path}/manage.py migrate --noinput',
-      user       => $user,
-      require    => Virtualenv::Exec["syncdb ${app_name}"],
-      before     => Supervisor::App[$app_name],
+    exec { "migrate ${app_name}":
+      command => 'python manage.py migrate --noinput',
+      path    => "${venv_path}/bin/",
+      cwd     => $django_abs_path,
+      user    => $user,
+      require => Exec["syncdb ${app_name}"],
+      before  => Supervisor::App[$app_name],
     }
   }
 
   # Create gunicorn conf file
   file { "gunicorn ${app_name}":
-    path    => "${project_path}/gunicorn.conf.py",
+    path    => "${venv_path}/gunicorn.conf.py",
     ensure  => present,
     content => template("django/gunicorn.conf.py.erb"),
     owner   => $user,
-    require => Virtualenv::Create[$venv_name]
+    require => Virtualenv::Create[$venv_path],
   }
 
   # Configure supervisor to run django
   supervisor::app { $app_name:
-    command => "virtualenv_exec ${venv_name} gunicorn ${gunicorn_app_module} -c ${project_path}/gunicorn.conf.py --settings=${source_path}/${settings}",
-    directory => "${source_path}",
+    command => "${venv_path}/bin/gunicorn ${gunicorn_app_module} -c ${venv_path}/gunicorn.conf.py",
+    directory => $django_abs_path,
     user => $user,
     require => File["gunicorn ${app_name}"],
   }
-
-
-
 
 }
