@@ -1,11 +1,11 @@
 define django::deploy(
   $app_name = $title,
   $venv_path,
-  $project_path,
+  $clone_path,
   $git_url,
   $user,
   $gunicorn_app_module,
-  $django_path = undef,
+  $project_path = undef,
   $requirements = "requirements.txt",
   $extra_settings = undef,
   $extra_settings_source = undef,
@@ -26,18 +26,18 @@ define django::deploy(
 ) {
 
   # Set django absolute path
-  if $django_path {
-    $django_abs_path = "${project_path}/${django_path}"
+  if $project_path {
+    $project_abs_path = "${clone_path}/${project_path}"
   } else {
-    $django_abs_path = $project_path
+    $project_abs_path = $clone_path
   }
 
   # Clone APP
   exec { "git-clone ${app_name}":
-    command => "git clone ${git_url} ${project_path}",
+    command => "git clone ${git_url} ${clone_path}",
     user    => $user,
     path    => ['/usr/bin'],
-    unless  => "test -d ${project_path}/.git",
+    unless  => "test -d ${clone_path}/.git",
     require => Package['git'],
   }
 
@@ -52,7 +52,7 @@ define django::deploy(
   if $extra_settings_source {
     file { "extra settings ${app_name}":
       ensure  => present,
-      path    => "${project_path}/${extra_settings}",
+      path    => "${clone_path}/${extra_settings}",
       source  => $settings_source,
       owner   => $user,
       require => Exec["git-clone ${app_name}"],
@@ -62,7 +62,7 @@ define django::deploy(
 
   # Install requirements
   virtualenv::install_requirements { "requirements ${app_name}":
-    requirements => "${project_path}/${requirements}",
+    requirements => "${clone_path}/${requirements}",
     venv         => $venv_path,
     user         => $user,
     require      => Virtualenv::Create[$venv_path]
@@ -72,7 +72,7 @@ define django::deploy(
   exec { "syncdb ${app_name}":
     command => 'python manage.py syncdb --noinput',
     path    => "${venv_path}/bin/",
-    cwd     => $django_abs_path,
+    cwd     => $project_abs_path,
     user    => $user,
     require => Virtualenv::Install_requirements["requirements ${app_name}"],
   }
@@ -83,7 +83,7 @@ define django::deploy(
     exec { "collectstatic ${app_name}":
       command => 'python manage.py collectstatic --noinput',
       path    => "${venv_path}/bin/",
-      cwd     => $django_abs_path,
+      cwd     => $project_abs_path,
       user    => $user,
       require => Exec["syncdb ${app_name}"],
       before  => Supervisor::App[$app_name],
@@ -94,7 +94,7 @@ define django::deploy(
     exec { "migrate ${app_name}":
       command => 'python manage.py migrate --noinput',
       path    => "${venv_path}/bin/",
-      cwd     => $django_abs_path,
+      cwd     => $project_abs_path,
       user    => $user,
       require => Exec["syncdb ${app_name}"],
       before  => Supervisor::App[$app_name],
@@ -113,7 +113,7 @@ define django::deploy(
   # Configure supervisor to run django
   supervisor::app { $app_name:
     command => "${venv_path}/bin/gunicorn ${gunicorn_app_module} -c ${venv_path}/gunicorn.conf.py",
-    directory => $django_abs_path,
+    directory => $project_abs_path,
     user => $user,
     require => File["gunicorn ${app_name}"],
   }
