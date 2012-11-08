@@ -53,7 +53,7 @@ define django::deploy(
   if $settings_local_source {
     file { "extra settings ${app_name}":
       ensure  => present,
-      path    => "${clone_path}/${settings_local}",
+      path    => "${project_abs_path}/${settings_local}",
       source  => $settings_local_source,
       owner   => $user,
       require => Exec["git-clone ${app_name}"],
