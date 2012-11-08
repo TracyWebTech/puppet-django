@@ -7,8 +7,8 @@ define django::deploy(
   $gunicorn_app_module,
   $project_path = undef,
   $requirements = "requirements.txt",
-  $extra_settings = undef,
-  $extra_settings_source = undef,
+  $settings_local = undef,
+  $settings_local_source = undef,
   $migrate = false,
   $collectstatic = false,
   $bind = "0.0.0.0:8000",
@@ -50,11 +50,11 @@ define django::deploy(
   }
 
   # Create extra settings file
-  if $extra_settings_source {
+  if $settings_local_source {
     file { "extra settings ${app_name}":
       ensure  => present,
-      path    => "${clone_path}/${extra_settings}",
-      source  => $settings_source,
+      path    => "${clone_path}/${settings_local}",
+      source  => $settings_local_source,
       owner   => $user,
       require => Exec["git-clone ${app_name}"],
       notify  => Exec["syncdb ${app_name}"],
