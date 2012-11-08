@@ -39,6 +39,7 @@ define django::deploy(
     path    => ['/usr/bin'],
     unless  => "test -d ${clone_path}/.git",
     require => Package['git'],
+    timeout => 0,
   }
 
   # Create virtualenv
