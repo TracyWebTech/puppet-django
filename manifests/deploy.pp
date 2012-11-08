@@ -45,7 +45,6 @@ define django::deploy(
   virtualenv::create { $venv_path:
     user    => $user,
     require => Class['virtualenv'],
-    unless  => "test -d ${venv_path}/bin",
   }
 
   # Create extra settings file
