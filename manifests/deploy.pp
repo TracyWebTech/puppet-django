@@ -43,8 +43,9 @@ define django::deploy(
 
   # Create virtualenv
   virtualenv::create { $venv_path:
-    user    => $user,
-    require => Class['virtualenv'],
+    user         => $user,
+    requirements => "${clone_path}/${requirements}",
+    require      => Exec["git-clone ${app_name}"],
   }
 
   # Create extra settings file
@@ -55,48 +56,45 @@ define django::deploy(
       source  => $settings_source,
       owner   => $user,
       require => Exec["git-clone ${app_name}"],
-      before  => Exec["syncdb ${app_name}"],
+      notify  => Exec["syncdb ${app_name}"],
     }
-  }
-
-  # Install requirements
-  virtualenv::install_requirements { "requirements ${app_name}":
-    requirements => "${clone_path}/${requirements}",
-    venv         => $venv_path,
-    user         => $user,
-    require      => Virtualenv::Create[$venv_path]
   }
 
   # Run syncdb
   exec { "syncdb ${app_name}":
-    command => 'python manage.py syncdb --noinput',
-    path    => "${venv_path}/bin/",
-    cwd     => $project_abs_path,
-    user    => $user,
-    require => Virtualenv::Install_requirements["requirements ${app_name}"],
+    command     => 'python manage.py syncdb --noinput',
+    path        => "${venv_path}/bin/",
+    cwd         => $project_abs_path,
+    user        => $user,
+    require     => Virtualenv::Create["${venv_path}"],
+    subscribe   => Exec["git-clone ${app_name}"],
+    refreshonly => true,
   }
 
   # Run collectstatic
   if ($collectstatic) {
-
     exec { "collectstatic ${app_name}":
-      command => 'python manage.py collectstatic --noinput',
-      path    => "${venv_path}/bin/",
-      cwd     => $project_abs_path,
-      user    => $user,
-      require => Exec["syncdb ${app_name}"],
-      before  => Supervisor::App[$app_name],
+      command     => 'python manage.py collectstatic --noinput',
+      path        => "${venv_path}/bin/",
+      cwd         => $project_abs_path,
+      user        => $user,
+      require     => Exec["syncdb ${app_name}"],
+      before      => Supervisor::App[$app_name],
+      subscribe   => Exec["git-clone ${app_name}"],
+      refreshonly => true,
     }
   }
   # Run migrate
   if ($migrate) {
     exec { "migrate ${app_name}":
-      command => 'python manage.py migrate --noinput',
-      path    => "${venv_path}/bin/",
-      cwd     => $project_abs_path,
-      user    => $user,
-      require => Exec["syncdb ${app_name}"],
-      before  => Supervisor::App[$app_name],
+      command     => 'python manage.py migrate --noinput',
+      path        => "${venv_path}/bin/",
+      cwd         => $project_abs_path,
+      user        => $user,
+      require     => Exec["syncdb ${app_name}"],
+      before      => Supervisor::App[$app_name],
+      subscribe   => Exec["git-clone ${app_name}"],
+      refreshonly => true,
     }
   }
 
