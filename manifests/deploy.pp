@@ -70,6 +70,7 @@ define django::deploy(
     require     => Virtualenv::Create["${venv_path}"],
     subscribe   => Exec["git-clone ${app_name}"],
     refreshonly => true,
+    timeout     => 0,
   }
 
   # Run collectstatic
@@ -83,6 +84,7 @@ define django::deploy(
       before      => Supervisor::App[$app_name],
       subscribe   => Exec["git-clone ${app_name}"],
       refreshonly => true,
+      timeout     => 0,
     }
   }
   # Run migrate
@@ -96,6 +98,7 @@ define django::deploy(
       before      => Supervisor::App[$app_name],
       subscribe   => Exec["git-clone ${app_name}"],
       refreshonly => true,
+      timeout     => 0,
     }
   }
 
