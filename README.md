@@ -40,8 +40,8 @@ $user # user to install and run your app (required)
 $gunicorn_app_module # python path to your wsgi file and your call (required)
 $project_path # path in your clone repository where located django project (optional)
 $requirements # path to your requirements files in your clone repository (defaults to requirements.txt)
-$extra_settings # name and path relative of your project path
-$extra_settings_source # puppet server path to copy your extra settings
+$settings_local # name and path relative of your project path
+$settings_local_source # puppet server path to copy your extra settings
 $migrate # run migrate on deploy (defaults to false)
 $collectstatic = run collectstatic on deploy (default to false)
 # gunicorn configs
