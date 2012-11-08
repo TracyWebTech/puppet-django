@@ -112,10 +112,10 @@ define django::deploy(
 
   # Configure supervisor to run django
   supervisor::app { $app_name:
-    command => "${venv_path}/bin/gunicorn ${gunicorn_app_module} -c ${venv_path}/gunicorn.conf.py",
+    command   => "${venv_path}/bin/gunicorn ${gunicorn_app_module} -c ${venv_path}/gunicorn.conf.py",
     directory => $project_abs_path,
-    user => $user,
-    require => File["gunicorn ${app_name}"],
+    user      => $user,
+    require   => File["gunicorn ${app_name}"],
   }
 
 }
