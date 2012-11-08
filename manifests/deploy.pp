@@ -82,7 +82,7 @@ define django::deploy(
       user        => $user,
       require     => Exec["syncdb ${app_name}"],
       before      => Supervisor::App[$app_name],
-      subscribe   => Exec["git-clone ${app_name}"],
+      subscribe   => [Exec["git-clone ${app_name}"], File["extra settings ${app_name}"]],
       refreshonly => true,
       timeout     => 0,
     }
