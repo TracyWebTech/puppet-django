@@ -32,6 +32,8 @@ define django::deploy(
     $project_abs_path = $clone_path
   }
 
+  $migrate_and_collectstatic_require = [Exec["syncdb ${app_name}"]]
+
   # Clone APP
   exec { "git-clone ${app_name}":
     command => "git clone ${git_url} ${clone_path}",
@@ -49,9 +51,9 @@ define django::deploy(
     require      => Exec["git-clone ${app_name}"],
   }
 
-  # Create extra settings file
+  # Create settings local file
   if $settings_local_source {
-    file { "extra settings ${app_name}":
+    file { "settings_local ${app_name}":
       ensure  => present,
       path    => "${project_abs_path}/${settings_local}",
       source  => $settings_local_source,
@@ -59,6 +61,7 @@ define django::deploy(
       require => Exec["git-clone ${app_name}"],
       notify  => Exec["syncdb ${app_name}"],
     }
+    $migrate_and_collectstatic_require += File["settings_local ${app_name}"]
   }
 
   # Run syncdb
@@ -72,7 +75,7 @@ define django::deploy(
     refreshonly => true,
     timeout     => 0,
   }
-
+  
   # Run collectstatic
   if ($collectstatic) {
     exec { "collectstatic ${app_name}":
@@ -80,9 +83,9 @@ define django::deploy(
       path        => "${venv_path}/bin/",
       cwd         => $project_abs_path,
       user        => $user,
-      require     => Exec["syncdb ${app_name}"],
+      require     => $migrate_and_collectstatic_require,
       before      => Supervisor::App[$app_name],
-      subscribe   => [Exec["git-clone ${app_name}"], File["extra settings ${app_name}"]],
+      subscribe   => Exec["git-clone ${app_name}"],
       refreshonly => true,
       timeout     => 0,
     }
@@ -94,9 +97,9 @@ define django::deploy(
       path        => "${venv_path}/bin/",
       cwd         => $project_abs_path,
       user        => $user,
-      require     => Exec["syncdb ${app_name}"],
+      require     => $migrate_and_collectstatic_require,
       before      => Supervisor::App[$app_name],
-      subscribe   => [Exec["git-clone ${app_name}"], File["extra settings ${app_name}"]],
+      subscribe   => Exec["git-clone ${app_name}"],
       refreshonly => true,
       timeout     => 0,
     }
