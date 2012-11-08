@@ -32,8 +32,6 @@ define django::deploy(
     $project_abs_path = $clone_path
   }
 
-  $migrate_and_collectstatic_require = [Exec["syncdb ${app_name}"]]
-
   # Clone APP
   exec { "git-clone ${app_name}":
     command => "git clone ${git_url} ${clone_path}",
@@ -61,7 +59,9 @@ define django::deploy(
       require => Exec["git-clone ${app_name}"],
       notify  => Exec["syncdb ${app_name}"],
     }
-    $migrate_and_collectstatic_require += File["settings_local ${app_name}"]
+    $migrate_and_collectstatic_require = [Exec["syncdb ${app_name}"], File["settings_local ${app_name}"]]
+  } else {
+    $migrate_and_collectstatic_require = Exec["syncdb ${app_name}"]
   }
 
   # Run syncdb
