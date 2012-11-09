@@ -6,7 +6,7 @@ workers = <%= workers %>
 backlog = <%= backlog %>
 <%- end %>
 <%- if @worker_class %>
-worker_class = <%= worker_class %>
+worker_class = '<%= worker_class %>'
 <%- end %>
 <%- if @worker_connections %>
 worker_connections = <%= worker_connections %>
