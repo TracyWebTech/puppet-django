@@ -47,6 +47,7 @@ define django::deploy(
     user         => $user,
     requirements => "${clone_path}/${requirements}",
     require      => Exec["git-clone ${app_name}"],
+    before       => File["gunicorn ${app_name}"]
   }
 
   # Create settings local file
@@ -111,7 +112,7 @@ define django::deploy(
     ensure  => present,
     content => template("django/gunicorn.conf.py.erb"),
     owner   => $user,
-    require => Virtualenv::Create[$venv_path],
+    notify  => Service["supervisor_${app_name}"]
   }
 
   # Configure supervisor to run django
