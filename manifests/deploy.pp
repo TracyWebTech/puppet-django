@@ -11,6 +11,7 @@ define django::deploy(
   $settings_local_source = undef,
   $migrate = false,
   $collectstatic = false,
+  $fixtures = false,
   $bind = "0.0.0.0:8000",
   $backlog = undef,
   $workers = "multiprocessing.cpu_count() * 2 + 1",
@@ -105,7 +106,19 @@ define django::deploy(
       timeout     => 0,
     }
   }
-
+  # Install fixtures
+  if ($fixtures) {
+    exec { "fixtures ${app_name}":
+      command     => "python manage.py loaddata ${fixtures}",
+      path        => "${venv_path}/bin/",
+      cwd         => $project_abs_path,
+      user        => $user,
+      before      => Supervisor::App[$app_name],
+      subscribe   => [Exec["collectstatic ${app_name}"], Exec["syncdb ${app_name}"]],
+      refreshonly => true,
+      timeout     => 0,
+    }
+  }
   # Create gunicorn conf file
   file { "gunicorn ${app_name}":
     path    => "${venv_path}/gunicorn.conf.py",
