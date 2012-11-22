@@ -20,13 +20,14 @@ include django
 * call define django::deploy
 ```puppet
 django::deploy { 'app':  
-      clone_path => '/path/to/clone/app',
-      venv_path => '/path/to/create/virtualenv',
-      git_url => 'git@github.com:host/app.git',
-      user => 'user_to_install',
+      clone_path          => '/path/to/clone/app',
+      venv_path           => '/path/to/create/virtualenv',
+      git_url             => 'git@github.com:host/app.git',
+      user                => 'user_to_install',
       gunicorn_app_module => "app.wsgi:application",
-      migrate => true,
-      collectstatic => true
+      migrate             => true,
+      collectstatic       => true,
+      fixtures            => 'test_data debug_data'
 }
 ```
 
@@ -43,7 +44,8 @@ $requirements # path to your requirements files in your clone repository (defaul
 $settings_local # name and path relative of your project path
 $settings_local_source # puppet server path to copy your extra settings
 $migrate # run migrate on deploy (defaults to false)
-$collectstatic = run collectstatic on deploy (default to false)
+$collectstatic # run collectstatic on deploy (default to false)
+$fixtures # install fixtures on deploy (default to false)
 # gunicorn configs
 $bind = "0.0.0.0:8000"
 $backlog = undef
